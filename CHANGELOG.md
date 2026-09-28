@@ -1,6 +1,61 @@
 # CHANGELOG
 
 
+## v0.63.1 (2026-09-28)
+
+### Bug Fixes
+
+- Push a renamed test case as an update, keeping its id
+  ([#342](https://github.com/polyai/adk/pull/342),
+  [`5fab4ed`](https://github.com/polyai/adk/commit/5fab4ed94d714653c0f3fa025d316aa687e57074))
+
+## Summary
+
+Renaming a test case no longer deletes it and creates a new one. A push pairs the renamed file with
+  the case it came from and sends an update, so the case keeps its id and its run history.
+
+## Motivation
+
+A test case's file name is derived from its name, so a rename moves the file. The push matched
+  resources by file path only, saw the old path as deleted and the new one as new, and minted a
+  fresh id. The platform already supports renaming through `Update_TestCase.name`; the push just
+  never used it. Every rename dropped the case's run history.
+
+No linked issue.
+
+## Changes
+
+- New pre-push step `prepush.pair_renamed_test_cases`, run first in `_clean_resources_before_push`
+  alongside the other push fixes. It pairs a new test case with a deleted one when their scenario
+  text matches and each side has exactly one candidate. - A paired case takes the saved id and moves
+  from new to updated. Its sub-resources (assertions, tags, SIP headers, integration attributes, API
+  mocks) are re-keyed to that id and re-diffed against the saved case, so only real changes are
+  sent. The pushed state is re-keyed too. - Anything ambiguous (several cases share a scenario, or
+  the scenario changed along with the name) is left as a delete and a create, as before. - Only test
+  cases are paired; other resource types are unchanged.
+
+## Test strategy
+
+- [x] Added/updated unit tests - [ ] Manual CLI testing (`poly <command>`) - [ ] Tested against a
+  live Agent Studio project - [ ] N/A (docs, config, or trivial change)
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass - [x] `pytest` passes - [x] No breaking
+  changes to the `poly` CLI interface (or migration path documented) - [x] Commit messages follow
+  [conventional commits](https://www.conventionalcommits.org/)
+
+## Screenshots / Logs
+
+``` $ uv run pytest src/poly/tests -q 2111 passed, 372 subtests passed ```
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+---------
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+
 ## v0.63.0 (2026-09-28)
 
 ### Features
