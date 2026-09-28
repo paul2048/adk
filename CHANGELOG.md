@@ -1,6 +1,62 @@
 # CHANGELOG
 
 
+## v0.64.0 (2026-09-28)
+
+### Features
+
+- Send is_asserted with function-call test assertions
+  ([#341](https://github.com/polyai/adk/pull/341),
+  [`84d8264`](https://github.com/polyai/adk/commit/84d82649491a1a822d352c7c6849863faff32508))
+
+## Summary
+
+Function-call assertions written in `test_suite/*.yaml` are now sent with `is_asserted: true`, so
+  test runs actually check them.
+
+## Motivation
+
+`FunctionCallAssertion.is_asserted` is a proto3 bool, so it defaults to false, and `to_proto` never
+  set it. Every function-call assertion pushed from YAML was stored as recorded but not asserted,
+  and test runs reported the call as `(not asserted)` instead of checking its name and arguments.
+  Nothing failed, so the gap was silent.
+
+No linked issue.
+
+## Changes
+
+- `FunctionCallAssertion` carries `is_asserted`, defaulting to true, and sends it in `to_proto`. -
+  YAML: a call is asserted unless it says `is_asserted: false`; the key is written only when false.
+  - Pull: the flag is read from the projection (missing means false, since proto3 omits a false
+  bool), so a call left unasserted in Studio survives a pull and push unchanged. - Migration:
+  assertions pushed before this fix are stored as not asserted, so a pull writes them out with
+  `is_asserted: false`. Deleting that line and pushing turns them on.
+
+## Test strategy
+
+- [x] Added/updated unit tests - [ ] Manual CLI testing (`poly <command>`) - [ ] Tested against a
+  live Agent Studio project - [ ] N/A (docs, config, or trivial change)
+
+## Checklist
+
+- [ ] `ruff check .` and `ruff format --check .` pass - [x] `pytest` passes - [x] No breaking
+  changes to the `poly` CLI interface (or migration path documented) - [x] Commit messages follow
+  [conventional commits](https://www.conventionalcommits.org/)
+
+## Screenshots / Logs
+
+`ruff check` passes on both changed files. `ruff format --check` flags one pre-existing unformatted
+  line in `resources_test.py` that this PR does not touch, so the box above is left unticked.
+
+``` $ uv run pytest src/poly/tests -q 2111 passed, 372 subtests passed in 29.50s ```
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+---------
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+
 ## v0.63.1 (2026-09-28)
 
 ### Bug Fixes
