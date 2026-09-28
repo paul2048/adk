@@ -1,6 +1,104 @@
 # CHANGELOG
 
 
+## v0.63.0 (2026-09-28)
+
+### Features
+
+- Move poly call voice dependencies into an optional call extra
+  ([#338](https://github.com/polyai/adk/pull/338),
+  [`20157e2`](https://github.com/polyai/adk/commit/20157e21039fafbb769b4a384cb708862586f5d7))
+
+## Summary
+
+The voice-calling dependencies for `poly call` move out of the default install into an optional
+  `call` extra. `pip install polyai-adk` drops from 163 MB to 74 MB. Anyone who uses `poly call`
+  installs `polyai-adk[call]`.
+
+## Motivation
+
+Every install pulled in the full WebRTC and audio stack (aiortc, sounddevice, websockets, numpy,
+  pywebrtc-audio, plus av, cryptography and pylibsrtp through them), about 90 MB of native wheels.
+  That is more than half the install, and only interactive users who place calls need it. CI
+  pipelines and other non-interactive installs paid for it on every run. A `[ci]` extra can't help,
+  because extras only add dependencies, so the voice stack has to leave the core list.
+
+## Changes
+
+- Move `aiortc`, `sounddevice`, `websockets`, `numpy` and `pywebrtc-audio` from `dependencies` into
+  a new `call` extra. `dev` includes `polyai-adk[call]`, so `uv pip install -e ".[dev]"` in CI and
+  in contributor setups still installs them and the call tests keep running. - `poly call` checks
+  for the voice dependencies first, before it loads the project or pushes with `--push`. If they are
+  missing, it exits with the install command that matches how ADK was installed: - uv tool: `uv tool
+  install "polyai-adk[call]"` - pipx: `pipx install --force "polyai-adk[call]"` - uv pip / pip: `uv
+  pip install "polyai-adk[call]"` / `pip install "polyai-adk[call]"` - uvx: `uvx --from
+  "polyai-adk[call]" poly call` - editable: `uv pip install -e ".[call]"` - `poly update` keeps the
+  `call` extra. `poly update --to X` used to run `uv tool install --force polyai-adk==X` (or the
+  pipx equivalent), which rewrites the installer's record without the extra. The requirement is now
+  `polyai-adk[call]` whenever the voice dependencies are importable. Upgrades through pip and uv pip
+  include it too, so the voice dependencies follow new pins. `uv tool upgrade` and `pipx upgrade`
+  already keep the extra. - Escape the `poly call` hint and the `poly update` failure message for
+  Rich, which otherwise treats `[call]` as markup and drops it. - Document the `call` extra in the
+  README, on the docs home page, in the getting-started install step and in the `poly call`
+  reference. Update the echo-cancellation hints to match. - Bump `google-crc32c` from 1.8.0 to 1.9.0
+  in `uv.lock` and mark its licence as Apache-2.0 in `licenses.json`. CI installs `.[dev]` without
+  the lock and gets the latest `google-crc32c` (1.9.0). While it was a core dependency, `uv run`
+  synced it back to the locked version. As a dependency of an extra it no longer does, so the lock
+  has to match what CI installs or the `licenses.json` check fails.
+
+Migration: an existing `uv tool` install loses the voice dependencies on the upgrade that crosses
+  this change, because uv makes the tool environment match the new dependency list. The next `poly
+  call` prints the one-line install command. pip and uv pip venvs are not affected, because pip
+  never removes packages.
+
+## Test strategy
+
+- [x] Added/updated unit tests - [x] Manual CLI testing (`poly <command>`) - [ ] Tested against a
+  live Agent Studio project - [ ] N/A (docs, config, or trivial change)
+
+I installed into fresh venvs:
+
+- `.[dev]` installs the voice stack. - `.` installs none of it. `poly --help` works, and `poly call`
+  exits at once with the install hint. - `.[call]` installs the voice stack, and `poly update --to`
+  keeps `[call]`.
+
+I checked how uv tool treats extras on upgrade with a toy package (details under Screenshots /
+  Logs).
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass - [x] `pytest` passes - [x] No breaking
+  changes to the `poly` CLI interface (or migration path documented) - [x] Commit messages follow
+  [conventional commits](https://www.conventionalcommits.org/)
+
+## Screenshots / Logs
+
+Install size in a fresh Python 3.14 venv:
+
+| Install | Size | |---|---| | `polyai-adk` | 74 MB | | `polyai-adk[call]` | 163 MB |
+
+`poly call` without the extra, in a uv pip venv:
+
+``` Error: `poly call` needs the voice calling dependencies, which are installed
+
+with the `call` extra. Install them with: uv pip install "polyai-adk[call]" ```
+
+How uv 0.11 handles extras, checked with a toy package:
+
+| Scenario | Result | |---|---| | `uv tool install 'pkg[call]'`, then `uv tool upgrade` | Extra kept
+  (it is stored in `uv-receipt.toml`) | | Existing uv tool install upgrades across the split | Voice
+  dependencies removed | | `uv tool install 'pkg[call]'` over an existing plain install | Extra
+  added in place | | `uv tool install --force pkg==X` after installing with the extra | Extra
+  dropped (fixed here for `poly update --to`) | | `pip` / `uv pip install --upgrade` in a venv |
+  Dependencies kept |
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+---------
+
+Co-authored-by: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+
+
 ## v0.62.0 (2026-09-25)
 
 ### Features
