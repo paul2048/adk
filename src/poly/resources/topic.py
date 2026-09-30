@@ -212,6 +212,12 @@ class Topic(YamlResource):
         if any(not tag.strip() for tag in self.tags):
             raise ValueError("Tags must not be empty")
 
+        # Files and hashes strip whitespace from strings but commands don't, so padded
+        # tags would diverge from what the file shows.
+        padded = [tag for tag in self.tags if tag != tag.strip()]
+        if padded:
+            raise ValueError(f"Tags must not start or end with whitespace: {padded}")
+
         too_long = [tag for tag in self.tags if len(tag) > TOPIC_TAG_MAX_LENGTH]
         if too_long:
             raise ValueError(

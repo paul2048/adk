@@ -105,8 +105,8 @@ This split is important: content is for facts, actions are for behavior.
 
 - `poly pull` writes `tags` only for topics that have tags.
 - A topic file without a `tags` key has no tags, so deleting the key clears them when you push.
-- Each tag must be non-empty, unique within the topic, and at most 16 characters. Tags are case-sensitive.
-- Child topics don't support tags.
+- Each tag must be non-empty, unique within the topic, at most 16 characters, and have no leading or trailing whitespace. Tags are case-sensitive.
+- Child topics don't support tags, so a `tags` key in a child topic file is an error.
 
 ## Content
 

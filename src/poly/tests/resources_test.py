@@ -12107,6 +12107,13 @@ example_queries:
 
         self.assertIn("Tags must not be empty", str(cm.exception))
 
+    def test_tag_with_surrounding_whitespace_fails_validation(self):
+        """Files strip whitespace but commands don't, so ' billing ' would not match the file."""
+        with self.assertRaises(ValueError) as cm:
+            _topic(tags=["billing", " billing "]).validate(resource_mappings=[])
+
+        self.assertIn("must not start or end with whitespace: [' billing ']", str(cm.exception))
+
     def test_tag_longer_than_the_ui_limit_fails_validation(self):
         with self.assertRaises(ValueError) as cm:
             _topic(tags=["a" * 17]).validate(resource_mappings=[])
@@ -12162,6 +12169,34 @@ example_queries:
         )
 
         self.assertEqual(updated, [TopicTags(resource_id="TOPIC-1", name="tags", tags=[])])
+
+    def test_topic_tags_are_only_ever_set(self):
+        """Tags are created with their topic and cleared with an empty list."""
+        tags = TopicTags(resource_id="TOPIC-1", name="tags", tags=["billing"])
+
+        self.assertEqual(tags.command_type, "topic_tags")
+        with self.assertRaises(NotImplementedError):
+            tags.build_create_proto()
+        with self.assertRaises(NotImplementedError):
+            tags.build_delete_proto()
+
+    def test_child_topic_file_with_tags_is_rejected(self):
+        """Child topics can't have tags, so a tags key is an error rather than dropped."""
+        yaml_dict = {"name": "Opening Hours", "content": "We open at 10am.", "tags": ["billing"]}
+
+        with self.assertRaises(ValueError) as cm:
+            ChildTopic.from_yaml_dict(yaml_dict, resource_id="TOPIC-child", name="Opening Hours")
+
+        self.assertIn("Child topic 'Opening Hours' has tags", str(cm.exception))
+
+    def test_child_topic_file_with_empty_tags_is_accepted(self):
+        yaml_dict = {"name": "Opening Hours", "content": "We open at 10am.", "tags": []}
+
+        child_topic = ChildTopic.from_yaml_dict(
+            yaml_dict, resource_id="TOPIC-child", name="Opening Hours"
+        )
+
+        self.assertEqual(child_topic.tags, [])
 
     def test_child_topics_have_no_tags(self):
         """The platform cannot set tags on a child topic, so child topic files never get them."""
