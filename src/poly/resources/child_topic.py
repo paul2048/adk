@@ -88,6 +88,8 @@ class ChildTopic(Topic):
         self.content = content
         self.example_queries = example_queries or []
         self.enabled = enabled
+        # The platform has no command to set tags on a child topic.
+        self.tags = []
 
     @classmethod
     def from_projection(cls, projection: dict) -> dict[str, "ChildTopic"]:
