@@ -1,6 +1,59 @@
 # CHANGELOG
 
 
+## v0.66.0 (2026-10-02)
+
+### Features
+
+- Name test runs with `poly test run --name` (AOS-1284)
+  ([#347](https://github.com/polyai/adk/pull/347),
+  [`3d15749`](https://github.com/polyai/adk/commit/3d15749f2b8f753591b769045225ef3621c18254))
+
+## Summary
+
+`poly test run` now sends the platform's current trigger payload and takes an optional `--name`, so
+  runs started from the ADK can be found in Agent Studio run history.
+
+## Motivation
+
+The ADK still posted the legacy `{ testCaseIds, branchId }` body. The platform converts that body to
+  `{ branchId, select }` and drops any other field, so a run name could never arrive. Agent Studio
+  now names runs and shows who started them (PolyAI-LDN/platform_ui#10837), so ADK runs should be
+  nameable too.
+
+Linear:
+  [AOS-1284](https://linear.app/poly-ai/issue/AOS-1284/adk-send-the-new-test-run-trigger-payload-and-allow-naming-runs)
+
+## Changes
+
+- `PlatformAPIHandler.trigger_test_run` sends `{ branchId, select: { mode: "testIds", testIds },
+  name? }`. Same endpoint, `/v1/agents/{project_id}/testing/test-runs/trigger`. - `name` is passed
+  through `AgentStudioInterface.trigger_test_run` and `AgentStudioProject.trigger_tests`. The name
+  is trimmed, a blank one is dropped, and anything over 120 characters fails locally with a
+  `ValueError` instead of a platform 422. - New `poly test run --name "<why> · <what>"` flag.
+  Without it, the platform keeps its default name (the test name or count). - CLI reference
+  (`docs/reference/cli/test.md`) and the `poly-adk-testing` skill document the flag.
+
+## Test strategy
+
+- [x] Added/updated unit tests: the request body shape, the name being sent, trim, blank and
+  over-length handling, and the `--name` flag being parsed and forwarded - [ ] Manual CLI testing
+  (`poly <command>`) - [ ] Tested against a live Agent Studio project
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass - [x] `pytest` passes (2124) - [x] No breaking
+  changes to the `poly` CLI interface. `--name` is optional, and the platform has accepted the
+  `select` shape since platform_ui#9801 and `name` since #10525. - [x] Commit messages follow
+  conventional commits
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+---------
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+
 ## v0.65.0 (2026-10-01)
 
 ### Features
