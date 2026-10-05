@@ -1,6 +1,72 @@
 # CHANGELOG
 
 
+## v0.66.1 (2026-10-05)
+
+### Bug Fixes
+
+- Keep conversation language across poly chat turns ([#351](https://github.com/polyai/adk/pull/351),
+  [`6e3e012`](https://github.com/polyai/adk/commit/6e3e0127918a310269edc11d6a2d84473dce3cdc))
+
+## Summary
+
+`poly chat` now sends back the language codes returned by each turn, so a mid-conversation
+  `conv.set_language()` persists across turns and sessions start in the project's default language
+  instead of the API's fallback (`en-GB`).
+
+## Motivation
+
+The platform does not persist the conversation language between chat turns. Each request is
+  processed in the language it carries (falling back to `en-GB` when none is sent), and each reply
+  returns the current language in `metadata.asr_lang_code` / `metadata.tts_lang_code`. Clients are
+  expected to echo these back on the next turn.
+
+`poly chat` sent the same `--lang` value (usually none) on every turn and never read the reply. As a
+  result:
+
+- After a function called `conv.set_language("es-US")`, only the following turn ran in `es-US`;
+  every later turn reverted to `en-GB`, so the agent drifted back to English. The same conversation
+  behaves correctly over voice and the Agent Studio chat panel, which makes `poly chat` misleading
+  for testing multilingual agents. - Every `poly chat` session ran on `en-GB` regardless of the
+  project's configured default language.
+
+## Changes
+
+- `_run_chat_loop` seeds the language codes from the session's start response and updates them from
+  each reply's metadata before the next `send_message`. - An explicit `--lang` / `--input-lang` /
+  `--output-lang` still applies to session creation and is kept when a reply carries no language
+  codes. A language switch made by the agent mid-conversation takes precedence, matching voice
+  behaviour.
+
+## Test strategy
+
+- [x] Added/updated unit tests (`ChatLoopTest`: carry-over after a switch, seeding from the start
+  response, CLI language kept when replies carry no codes) - [x] Manual CLI testing (`poly
+  <command>`) - [x] Tested against a live Agent Studio project
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass (via the repo's pinned pre-commit hooks; a
+  newer unpinned ruff flags an existing `except (KeyboardInterrupt, EOFError)` on `main`, untouched
+  here) - [x] `pytest` passes (2127 passed) - [x] No breaking changes to the `poly` CLI interface
+  (or migration path documented) - [x] Commit messages follow [conventional
+  commits](https://www.conventionalcommits.org/)
+
+## Screenshots / Logs
+
+Language sent with each turn, patched vs unpatched, for a conversation where the agent switches to
+  Spanish on turn 3:
+
+``` turn before after 2 en-GB en-US (project default) 3 es-US es-US (switch) 4 en-GB es-US 5 en-GB
+  es-US 6 en-GB es-US ```
+
+With the fix, agent replies stay in Spanish for the rest of the conversation.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+
 ## v0.66.0 (2026-10-02)
 
 ### Features
