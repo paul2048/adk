@@ -28,9 +28,6 @@ FLOW_FUNCTION_REGEX = re.compile(r"{{ft:([\w-]+)}}")
 
 TOPIC_REFERENCES = ["global_functions", "sms", "handoff", "attributes", "variables", "translations"]
 
-# Agent Studio's tag input caps each tag at this many characters.
-TOPIC_TAG_MAX_LENGTH = 16
-
 
 @dataclass
 class TopicTags(SubResource):
@@ -208,7 +205,11 @@ class Topic(YamlResource):
         self._validate_tags()
 
     def _validate_tags(self) -> None:
-        """Validate tags against the limits of Agent Studio's tag input."""
+        """Validate the topic's tags.
+
+        Length is not checked: Agent Studio's tag input limits it, but imported topics can
+        carry longer tags, and validation must pass on what a pull writes.
+        """
         if any(not tag.strip() for tag in self.tags):
             raise ValueError("Tags must not be empty")
 
@@ -217,12 +218,6 @@ class Topic(YamlResource):
         padded = [tag for tag in self.tags if tag != tag.strip()]
         if padded:
             raise ValueError(f"Tags must not start or end with whitespace: {padded}")
-
-        too_long = [tag for tag in self.tags if len(tag) > TOPIC_TAG_MAX_LENGTH]
-        if too_long:
-            raise ValueError(
-                f"Tags must be at most {TOPIC_TAG_MAX_LENGTH} characters long: {too_long}"
-            )
 
         duplicates = sorted({tag for tag in self.tags if self.tags.count(tag) > 1})
         if duplicates:

@@ -12136,7 +12136,10 @@ example_queries:
         self.assertIn("'tags' should be a list of str", str(cm.exception))
 
     def test_valid_tags_pass_validation(self):
-        self.assertIsNone(_topic(tags=["billing", "a" * 16]).validate(resource_mappings=[]))
+        """Long tags pass: imported topics can have tags longer than the Agent Studio input allows."""
+        tags = ["billing", "can I send you the directions?"]
+
+        self.assertIsNone(_topic(tags=tags).validate(resource_mappings=[]))
 
     def test_empty_tag_fails_validation(self):
         with self.assertRaises(ValueError) as cm:
@@ -12150,12 +12153,6 @@ example_queries:
             _topic(tags=["billing", " billing "]).validate(resource_mappings=[])
 
         self.assertIn("must not start or end with whitespace: [' billing ']", str(cm.exception))
-
-    def test_tag_longer_than_the_ui_limit_fails_validation(self):
-        with self.assertRaises(ValueError) as cm:
-            _topic(tags=["a" * 17]).validate(resource_mappings=[])
-
-        self.assertIn("at most 16 characters", str(cm.exception))
 
     def test_duplicate_tags_fail_validation(self):
         """Tags are case-sensitive in Agent Studio, so only exact repeats are duplicates."""
