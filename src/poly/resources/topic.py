@@ -150,6 +150,10 @@ class Topic(YamlResource):
     ) -> "YamlResource":
         """Create an instance from YAML data and identity fields."""
         resolved_name = yaml_dict.get("name") or name
+        tags = yaml_dict.get("tags")
+        if isinstance(tags, list):
+            # Non-strings are left for check_yaml_field_types to report
+            tags = [tag.strip() if isinstance(tag, str) else tag for tag in tags]
         return cls(
             resource_id=resource_id,
             name=resolved_name,
@@ -157,7 +161,7 @@ class Topic(YamlResource):
             content=yaml_dict.get("content", ""),
             example_queries=yaml_dict.get("example_queries", []),
             enabled=yaml_dict.get("enabled", True),
-            tags=yaml_dict.get("tags"),
+            tags=tags,
         )
 
     @classmethod
@@ -212,12 +216,6 @@ class Topic(YamlResource):
         """
         if any(not tag.strip() for tag in self.tags):
             raise ValueError("Tags must not be empty")
-
-        # Files and hashes strip whitespace from strings but commands don't, so padded
-        # tags would diverge from what the file shows.
-        padded = [tag for tag in self.tags if tag != tag.strip()]
-        if padded:
-            raise ValueError(f"Tags must not start or end with whitespace: {padded}")
 
         duplicates = sorted({tag for tag in self.tags if self.tags.count(tag) > 1})
         if duplicates:

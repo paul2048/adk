@@ -4564,6 +4564,16 @@ class TopicTagsSyncTest(unittest.TestCase):
         incoming[Topic][self.TOPIC_ID].tags = tags
         self.mock_api_handler.pull_resources.return_value = (incoming, [], {})
 
+    def test_tagged_topic_in_the_test_project_has_no_changes(self):
+        """Topic 2 is tagged in both its file and the saved state, so nothing is pushed."""
+        project = self._project()
+
+        success, message, _ = project.push_project(force=True)
+
+        self.assertEqual(project.resources[Topic]["TOPIC-Topic 2"].tags, ["email", "validation"])
+        self.assertFalse(success)
+        self.assertEqual(message, "No changes detected")
+
     def test_force_push_clears_tags_when_file_has_no_tags_key(self):
         """A force push has no pulled baseline, so a file without tags clears them."""
         project = self._project(saved_tags=["billing"])

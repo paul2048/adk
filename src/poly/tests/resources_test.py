@@ -12147,12 +12147,18 @@ example_queries:
 
         self.assertIn("Tags must not be empty", str(cm.exception))
 
-    def test_tag_with_surrounding_whitespace_fails_validation(self):
-        """Files strip whitespace but commands don't, so ' billing ' would not match the file."""
-        with self.assertRaises(ValueError) as cm:
-            _topic(tags=["billing", " billing "]).validate(resource_mappings=[])
+    def test_tags_are_stripped_when_read(self):
+        topic = self._read("tags:\n- ' billing '\n- refunds\n")
 
-        self.assertIn("must not start or end with whitespace: [' billing ']", str(cm.exception))
+        self.assertEqual(topic.tags, ["billing", "refunds"])
+
+    def test_tags_equal_once_stripped_are_duplicates(self):
+        topic = self._read("tags:\n- billing\n- ' billing '\n")
+
+        with self.assertRaises(ValueError) as cm:
+            topic.validate(resource_mappings=[])
+
+        self.assertIn("Duplicate tags: ['billing']", str(cm.exception))
 
     def test_duplicate_tags_fail_validation(self):
         """Tags are case-sensitive in Agent Studio, so only exact repeats are duplicates."""
