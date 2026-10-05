@@ -1,6 +1,160 @@
 # CHANGELOG
 
 
+## v0.66.1 (2026-10-05)
+
+### Bug Fixes
+
+- Keep conversation language across poly chat turns ([#351](https://github.com/polyai/adk/pull/351),
+  [`6e3e012`](https://github.com/polyai/adk/commit/6e3e0127918a310269edc11d6a2d84473dce3cdc))
+
+## Summary
+
+`poly chat` now sends back the language codes returned by each turn, so a mid-conversation
+  `conv.set_language()` persists across turns and sessions start in the project's default language
+  instead of the API's fallback (`en-GB`).
+
+## Motivation
+
+The platform does not persist the conversation language between chat turns. Each request is
+  processed in the language it carries (falling back to `en-GB` when none is sent), and each reply
+  returns the current language in `metadata.asr_lang_code` / `metadata.tts_lang_code`. Clients are
+  expected to echo these back on the next turn.
+
+`poly chat` sent the same `--lang` value (usually none) on every turn and never read the reply. As a
+  result:
+
+- After a function called `conv.set_language("es-US")`, only the following turn ran in `es-US`;
+  every later turn reverted to `en-GB`, so the agent drifted back to English. The same conversation
+  behaves correctly over voice and the Agent Studio chat panel, which makes `poly chat` misleading
+  for testing multilingual agents. - Every `poly chat` session ran on `en-GB` regardless of the
+  project's configured default language.
+
+## Changes
+
+- `_run_chat_loop` seeds the language codes from the session's start response and updates them from
+  each reply's metadata before the next `send_message`. - An explicit `--lang` / `--input-lang` /
+  `--output-lang` still applies to session creation and is kept when a reply carries no language
+  codes. A language switch made by the agent mid-conversation takes precedence, matching voice
+  behaviour.
+
+## Test strategy
+
+- [x] Added/updated unit tests (`ChatLoopTest`: carry-over after a switch, seeding from the start
+  response, CLI language kept when replies carry no codes) - [x] Manual CLI testing (`poly
+  <command>`) - [x] Tested against a live Agent Studio project
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass (via the repo's pinned pre-commit hooks; a
+  newer unpinned ruff flags an existing `except (KeyboardInterrupt, EOFError)` on `main`, untouched
+  here) - [x] `pytest` passes (2127 passed) - [x] No breaking changes to the `poly` CLI interface
+  (or migration path documented) - [x] Commit messages follow [conventional
+  commits](https://www.conventionalcommits.org/)
+
+## Screenshots / Logs
+
+Language sent with each turn, patched vs unpatched, for a conversation where the agent switches to
+  Spanish on turn 3:
+
+``` turn before after 2 en-GB en-US (project default) 3 es-US es-US (switch) 4 en-GB es-US 5 en-GB
+  es-US 6 en-GB es-US ```
+
+With the fix, agent replies stay in Spanish for the rest of the conversation.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+
+## v0.66.0 (2026-10-02)
+
+### Features
+
+- Name test runs with `poly test run --name` (AOS-1284)
+  ([#347](https://github.com/polyai/adk/pull/347),
+  [`3d15749`](https://github.com/polyai/adk/commit/3d15749f2b8f753591b769045225ef3621c18254))
+
+## Summary
+
+`poly test run` now sends the platform's current trigger payload and takes an optional `--name`, so
+  runs started from the ADK can be found in Agent Studio run history.
+
+## Motivation
+
+The ADK still posted the legacy `{ testCaseIds, branchId }` body. The platform converts that body to
+  `{ branchId, select }` and drops any other field, so a run name could never arrive. Agent Studio
+  now names runs and shows who started them (PolyAI-LDN/platform_ui#10837), so ADK runs should be
+  nameable too.
+
+Linear:
+  [AOS-1284](https://linear.app/poly-ai/issue/AOS-1284/adk-send-the-new-test-run-trigger-payload-and-allow-naming-runs)
+
+## Changes
+
+- `PlatformAPIHandler.trigger_test_run` sends `{ branchId, select: { mode: "testIds", testIds },
+  name? }`. Same endpoint, `/v1/agents/{project_id}/testing/test-runs/trigger`. - `name` is passed
+  through `AgentStudioInterface.trigger_test_run` and `AgentStudioProject.trigger_tests`. The name
+  is trimmed, a blank one is dropped, and anything over 120 characters fails locally with a
+  `ValueError` instead of a platform 422. - New `poly test run --name "<why> · <what>"` flag.
+  Without it, the platform keeps its default name (the test name or count). - CLI reference
+  (`docs/reference/cli/test.md`) and the `poly-adk-testing` skill document the flag.
+
+## Test strategy
+
+- [x] Added/updated unit tests: the request body shape, the name being sent, trim, blank and
+  over-length handling, and the `--name` flag being parsed and forwarded - [ ] Manual CLI testing
+  (`poly <command>`) - [ ] Tested against a live Agent Studio project
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass - [x] `pytest` passes (2124) - [x] No breaking
+  changes to the `poly` CLI interface. `--name` is optional, and the platform has accepted the
+  `select` shape since platform_ui#9801 and `name` since #10525. - [x] Commit messages follow
+  conventional commits
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+---------
+
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>
+
+
+## v0.65.0 (2026-10-01)
+
+### Features
+
+- Limit custom guardrails to 20 per project ([#346](https://github.com/polyai/adk/pull/346),
+  [`351faf7`](https://github.com/polyai/adk/commit/351faf70aaad5df18e54c1e0f1284b3bf8e34efc))
+
+## Summary
+
+Adds a local cap of 20 custom guardrails per project, enforced during `poly validate`/`poly push`.
+
+## Motivation
+
+The platform already rejects a 21st custom guardrail server-side, but that rejection surfaces after
+  the whole push transaction has been submitted — rolling back every resource in the batch, not just
+  the excess guardrails. Catching the count locally avoids that failure mode.
+
+## Changes
+
+- Added `MAX_CUSTOM_GUARDRAILS = 20` constant in `src/poly/resources/guardrails.py`, mirroring the
+  platform's server-side limit - Added `CustomGuardrail.validate_collection()` override that raises
+  `ValueError` when the collection exceeds the limit
+
+## Test strategy
+
+- [x] Added/updated unit tests - [ ] Manual CLI testing (`poly <command>`) - [ ] Tested against a
+  live Agent Studio project - [ ] N/A (docs, config, or trivial change)
+
+## Checklist
+
+- [x] `ruff check .` and `ruff format --check .` pass - [x] `pytest` passes - [ ] No breaking
+  changes to the `poly` CLI interface (or migration path documented) - [x] Commit messages follow
+  [conventional commits](https://www.conventionalcommits.org/)
+
+
 ## v0.64.0 (2026-09-28)
 
 ### Features
